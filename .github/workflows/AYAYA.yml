@@ -5,107 +5,46 @@ on:
     branches: [master]
 
 jobs:
-
-  # ============================
-  # Build caches (common for all)
-  # ============================
-  BuildCaches:
-    name: Build Caches
-    permissions: write-all
-    strategy:
-      matrix:
-        include:
-          - name: Linux
-            os: ubuntu-latest
-            setupScript: sh ./setup/unix.sh
-            CACHE_NAME: H-Slice.0.2.2.desktop-cache
-          - name: Mobile
-            os: macos-latest
-            setupScript: sh ./setup/mobile.sh
-            CACHE_NAME: H-Slice.0.2.2.mobile-cache
-    uses: ./.github/workflows/dependencies.yml
-    with:
-      os: ${{ matrix.os }}
-      CACHE_NAME: ${{ matrix.CACHE_NAME }}
-      setupScript: ${{ matrix.setupScript }}
-
-  # ============================
   # Build all platforms
-  # ============================
-  BuildAll:
-    needs: BuildCaches
+  Build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         platform: [macos, windows, linux, android, ios]
     steps:
       - uses: actions/checkout@v3
-
-      - name: Setup environment for ${{ matrix.platform }}
-        run: |
-          echo "Setup for ${{ matrix.platform }}"
-          # Replace with your actual setup script if needed
-          if [[ "${{ matrix.platform }}" == "android" || "${{ matrix.platform }}" == "ios" ]]; then
-            sh ./setup/mobile.sh
-          elif [[ "${{ matrix.platform }}" == "linux" ]]; then
-            sh ./setup/unix.sh
-          fi
-
-      - name: Build ${{ matrix.platform }}
+      - name: Setup build environment
+        run: echo "Set up ${{ matrix.platform }}"
+      - name: Build project
         run: |
           mkdir -p builds/${{ matrix.platform }}
-          # Replace these with your actual build commands
-          if [[ "${{ matrix.platform }}" == "macos" ]]; then
-            echo "Dummy macOS build" > builds/macos/H-Slice.macos.app
-          elif [[ "${{ matrix.platform }}" == "windows" ]]; then
-            echo "Dummy Windows build" > builds/windows/H-Slice.windows.exe
-          elif [[ "${{ matrix.platform }}" == "linux" ]]; then
-            echo "Dummy Linux build" > builds/linux/H-Slice.linux
-          elif [[ "${{ matrix.platform }}" == "android" ]]; then
-            echo "Dummy Android APK" > builds/android/H-Slice.apk
-          elif [[ "${{ matrix.platform }}" == "ios" ]]; then
-            echo "Dummy iOS IPA" > builds/ios/H-Slice.ipa
-          fi
-
-      - name: Upload ${{ matrix.platform }} build
+          # Replace the next line with your actual build command
+          echo "Dummy build for ${{ matrix.platform }}" > builds/${{ matrix.platform }}/dummy.txt
+      - name: Upload build artifact
         uses: actions/upload-artifact@v3
         with:
           name: build-${{ matrix.platform }}
           path: builds/${{ matrix.platform }}/*
 
-  # ============================
-  # Create GitHub Release
-  # ============================
-  CreateRelease:
-    needs: BuildAll
+  # Create Release
+  Release:
+    needs: Build
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v3
-
-      - name: Download all build artifacts
+      - name: Download all builds
         uses: actions/download-artifact@v3
         with:
           path: release_builds
-
-      - name: List downloaded build files
-        run: ls -R release_builds
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v0.2.2
           name: "H-Slice v0.2.2"
-          body: |
-            🚀 New Release: **H-Slice v0.2.2**
-
-            Includes builds for:
-            - Windows
-            - Linux
-            - macOS
-            - Android
-            - iOS
-          files: release_builds/**/*   # only the build binaries
+          body: "Automated release with all builds attached"
+          files: release_builds/**/*   # Only the builds
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
