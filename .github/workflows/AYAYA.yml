@@ -3,8 +3,8 @@ name: Build the game
 on:
   push:
     branches: [master]
+
 jobs:
-  
   BuildCaches:
     name: ${{ matrix.name }}
     permissions: write-all
@@ -15,7 +15,6 @@ jobs:
             os: ubuntu-latest
             setupScript: sh ./setup/unix.sh
             CACHE_NAME: H-Slice.0.2.2.desktop-cache
-
           - name: Mobile
             os: macos-latest
             setupScript: sh ./setup/mobile.sh
@@ -25,6 +24,7 @@ jobs:
       os: ${{ matrix.os }}
       CACHE_NAME: ${{ matrix.CACHE_NAME }}
       setupScript: ${{ matrix.setupScript }}
+
   BuildMacos:
     name: macos
     needs: BuildCaches
@@ -36,6 +36,7 @@ jobs:
       cacheLibrariesPath: H-Slice.0.2.2.mobile-cache
       artifactName: H-Slice.0.2.2.macos
       artifactPath: export/release/macos/bin/*
+
   BuildDesktop:
     name: ${{ matrix.name }}
     needs: BuildCaches
@@ -59,7 +60,6 @@ jobs:
             cachePath: H-Slice.0.2.2.build-linux
             cacheLibrariesPath: H-Slice.0.2.2.desktop-cache
             artifactPath: export/release/linux/bin/*
-
     uses: ./.github/workflows/build.yml
     with:
       name: ${{ matrix.name }}
@@ -69,7 +69,7 @@ jobs:
       exportPath: ${{ matrix.exportPath }}
       artifactName: ${{ matrix.artifactName }}
       artifactPath: ${{ matrix.artifactPath }}
-      cachePath: ${{matrix.cachePath}}
+      cachePath: ${{ matrix.cachePath }}
 
   BuildMobile:
     permissions: write-all
@@ -104,4 +104,44 @@ jobs:
       artifactName: ${{ matrix.artifactName }}
       cacheLibrariesPath: ${{ matrix.cacheLibrariesPath }}
       artifactPath: ${{ matrix.artifactPath }}
-      cachePath: ${{matrix.cachePath}}
+      cachePath: ${{ matrix.cachePath }}
+
+  # ======================================
+  # ✅ Create GitHub Release
+  # ======================================
+  CreateRelease:
+    name: Create Release
+    needs: [BuildMacos, BuildDesktop, BuildMobile]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # allows creating a release and uploading assets
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List downloaded artifacts
+        run: ls -R artifacts
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.2.2
+          name: "H-Slice v0.2.2"
+          body: |
+            🚀 New Release: **H-Slice v0.2.2**
+
+            Includes builds for:
+            - Windows
+            - Linux
+            - macOS
+            - Android
+            - iOS
+
+            **Built automatically via GitHub Actions**
+          files: |
+            artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
